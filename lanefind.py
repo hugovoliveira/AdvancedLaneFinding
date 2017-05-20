@@ -256,9 +256,9 @@ def process_image(orig_image):
     leftx_current = leftx_base
     rightx_current = rightx_base
     # Set the width of the windows +/- margin
-    margin = 100
+    margin = 50
     # Set minimum number of pixels found to recenter window
-    minpix = 50
+    minpix = 25
     # Create empty lists to receive left and right lane pixel indices
     left_lane_inds = []
     right_lane_inds = []
@@ -272,16 +272,32 @@ def process_image(orig_image):
         win_xleft_high = leftx_current + margin
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
-        # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+        # If you found > minpix pixels, recenter window on their mean position
+        if len(good_left_inds) > minpix:
+            leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+            win_xleft_low = leftx_current - margin
+            win_xleft_high = leftx_current + margin
+
+        if len(good_right_inds) > minpix:        
+            rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+            win_xright_low = rightx_current - margin
+            win_xright_high = rightx_current + margin
+
+        # Identify the nonzero pixels in x and y within the window
+        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
+        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
-        # If you found > minpix pixels, recenter next window on their mean position
+
+        # Draw the windows on the visualization image
+        cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
+        cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
+
         if len(good_left_inds) > minpix:
             leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
         if len(good_right_inds) > minpix:        
@@ -319,7 +335,7 @@ def process_image(orig_image):
                 mask_lane[i,j,2]=0
     
     mask_lane_dewarped = cv2.warpPerspective(mask_lane, invM, img_size, flags=cv2.INTER_LINEAR)
-    
+
     if (process_image_plotting):
         output_img = '.\\output_images\\mask_lane_testimage.jpg'
         f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
@@ -356,12 +372,19 @@ def process_image(orig_image):
     right_fitx =    right_fit_cr[0]*(y_eval*ym_per_pix)**2+    right_fit_cr[1]*(y_eval*ym_per_pix) +   right_fit_cr[2]
     
     #This is the position of the car in meters from the left of the image
-    midle_position = augmented_image.shape[1]*xm_per_pix/2
+    image_center = augmented_image.shape[1]*xm_per_pix/2
+    lane_middle = (left_fitx+ right_fitx)/2
+    
+    if np.mean(curve_rad) > 1500:
+        radius_string = 'Lane is straight'
+    else:
+        radius_string = 'Radius of curvature is: {:06.2f}'.format(np.mean(curve_rad))
+        
     #define font and print data to image
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(augmented_image, 'Radius of curvature is: {:06.2f}'.format(np.mean(curve_rad)), (10,30), font, 1, (255,255,255),2)
-    cv2.putText(augmented_image, 'Distance from the left lane: {:03.2f}'.format(midle_position-left_fitx), (10,60), font, 1, (255,255,255),2)
-    
+    cv2.putText(augmented_image, radius_string , (10,30), font, 1, (255,255,255),2)
+    cv2.putText(augmented_image, 'Distance from the center of the lane: {:03.2f}'.format(image_center-lane_middle), (10,60), font, 1, (255,255,255),2)
+
     if (process_image_plotting):
         plt.figure()
         plt.imshow(augmented_image)
@@ -399,14 +422,6 @@ input_file = 'C:\\Users\\Usuario\\Documents\\PythonProjects\\SelfDrivingCars\\Ad
 project_video = VideoFileClip(input_file)
 treated_video = project_video.fl_image(process_image)
 treated_video.write_videofile(".\\project_video_result.mp4", audio=False)
-
-
-
-# input_file = 'C:\\Users\\Usuario\\Documents\\PythonProjects\\SelfDrivingCars\\AdvancedLaneFinding\\project_video.mp4'
-# input_file = '.\\project_video.mp4'
-# project_video = VideoFileClip(input_file).subclip(0,5)
-# treated_video = project_video.fl_image(process_image)
-# treated_video.write_videofile(".\\project_video_result.mp4", audio=False)
 
 
 
